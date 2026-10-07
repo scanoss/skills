@@ -1,12 +1,12 @@
-# SCANOSS Agent Skills
+# SCANOSS agent skills
 
-Agent Skills that teach AI coding agents to use SCANOSS tools correctly: scan code for open source,
-licences, vulnerabilities, and cryptography, build CI checks from plain shell steps, and operate Earnie.
+These skills teach AI coding agents to use SCANOSS tools. With them, an agent can scan code for open
+source, licences, vulnerabilities, and cryptography, build CI checks from plain shell steps, and operate Earnie.
 
 Skills follow the [Agent Skills](https://agentskills.io/specification) format. Each one is short and links
-to the matching page on [docs.scanoss.com](https://docs.scanoss.com) (every page is also served as
-Markdown by appending `.md`; the full index is at https://docs.scanoss.com/llms.txt), so the docs stay
-the exhaustive reference.
+to the matching page on [docs.scanoss.com](https://docs.scanoss.com), which stays the full reference.
+Every docs page is also served as Markdown if you append `.md` to its URL, and the full index is at
+https://docs.scanoss.com/llms.txt.
 
 ## Install
 

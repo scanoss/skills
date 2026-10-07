@@ -9,13 +9,13 @@ metadata:
 
 # Crypto Finder
 
-`crypto-finder` detects cryptography in a codebase using SCANOSS-maintained detection rules, and
-writes findings as JSON or a CycloneDX 1.7 CBOM. Full reference:
+`crypto-finder` detects cryptography in a codebase with detection rules that SCANOSS maintains. It
+writes findings as JSON or as a CycloneDX 1.7 CBOM. The full reference is at
 https://docs.scanoss.com/en/latest/cli/crypto-finder/quick-start.md
 
 ## Install
 
-Prefer Docker: the standard image bundles the scanning engine.
+Prefer Docker, because the standard image bundles the scanning engine.
 
 | Image | Use |
 |---|---|
@@ -23,8 +23,8 @@ Prefer Docker: the standard image bundles the scanning engine.
 | `ghcr.io/scanoss/crypto-finder:latest-slim` | Binary only; bring your own scanning engine |
 | `ghcr.io/scanoss/crypto-finder:latest-deps` | Adds Go, Java (JDK 8/11/17/21, Maven, Gradle), Rust, Python toolchains for `--scan-dependencies` |
 
-Native install (Go 1.25+), which also needs the scanning engine listed in
-https://docs.scanoss.com/en/latest/cli/crypto-finder/installation.md :
+To install natively, use Go 1.25+. A native install also needs the scanning engine listed in
+https://docs.scanoss.com/en/latest/cli/crypto-finder/installation.md.
 
 ```bash
 go install github.com/scanoss/crypto-finder/cmd/crypto-finder@latest
@@ -35,8 +35,8 @@ Pin an image version tag in CI rather than `latest`.
 
 ## Configure
 
-The API key is used to download the SCANOSS rulesets (cached 7 days) and published dependency findings.
-Local rules only (`--no-remote-rules --rules-dir <dir>`) need no key.
+Crypto Finder uses the API key to download the SCANOSS rulesets, which it caches for 7 days, and published
+dependency findings. A scan with local rules only (`--no-remote-rules --rules-dir <dir>`) needs no key.
 
 ```bash
 export SCANOSS_API_KEY=...                    # CI: inject from the secret store
@@ -44,10 +44,12 @@ crypto-finder configure --api-key "<key>"     # workstation: ~/.scanoss/crypto-f
 crypto-finder configure --api-url https://scanoss.internal.example.com   # or SCANOSS_API_URL
 ```
 
-Precedence: flags > env vars (`SCANOSS_API_KEY`, `SCANOSS_API_URL`) > config file > project `scanoss.json` > defaults.
-The config file is separate from scanoss-cli's. No proxy/CA flags: it honours `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`
-and the OS trust store (`SSL_CERT_FILE` replaces the bundle). Skip paths with `settings.skip.patterns.scanning` in
-`scanoss.json`. Reference: https://docs.scanoss.com/en/latest/cli/crypto-finder/configuration.md
+Flags take precedence over environment variables (`SCANOSS_API_KEY`, `SCANOSS_API_URL`). Environment variables
+take precedence over the config file, then the project `scanoss.json`, then the defaults. The config file is
+separate from the scanoss-cli config. There are no proxy or CA flags. Crypto Finder honours `HTTP_PROXY`,
+`HTTPS_PROXY`, and `NO_PROXY`, and uses the OS trust store. `SSL_CERT_FILE` replaces the bundle. To skip paths,
+set `settings.skip.patterns.scanning` in `scanoss.json`. See
+https://docs.scanoss.com/en/latest/cli/crypto-finder/configuration.md.
 
 ## Scan
 
@@ -60,10 +62,18 @@ crypto-finder scan --rules-dir ./custom-rules /path/to/code         # remote + l
 crypto-finder scan --no-cache /path/to/code                         # force fresh ruleset download
 ```
 
-Useful flags: `--languages java,python` (override detection), `--timeout 30m` (default 10m),
-`--include-tests`, `--exclude <glob>` (repeatable), `--no-default-exclusions`, `--strict` (fail instead of
-using a stale rules cache), `--error-format json` (one JSON error with a stable `code` on stderr),
-`-v`/`-q`. Run `crypto-finder scan --help` for the full list.
+Other useful flags:
+
+- `--languages java,python` overrides language detection.
+- `--timeout 30m` sets the timeout. The default is 10m.
+- `--include-tests` scans test files.
+- `--exclude <glob>` skips matching paths. You can repeat it.
+- `--no-default-exclusions` turns off the built-in exclusions.
+- `--strict` fails the scan instead of using a stale rules cache.
+- `--error-format json` writes one JSON error with a stable `code` to stderr.
+- `-v` makes output verbose and `-q` makes it quiet.
+
+Run `crypto-finder scan --help` for the full list.
 
 With Docker, mount the code read-only and an output folder:
 
@@ -83,8 +93,9 @@ git diff --name-only origin/main...HEAD > changed.txt
 crypto-finder scan --detect-paths-from changed.txt --output findings.json .
 ```
 
-Scopes detection only; the rest of the tree is still read, so reachability stays correct. Do not
-emulate this with `--exclude`, which also prunes the call graph. Needs the default scanning engine.
+This limits detection to the listed files. Crypto Finder still reads the rest of the tree, so reachability
+stays correct. Do not use `--exclude` for this, because it also prunes the call graph. This option needs the
+default scanning engine.
 
 ## CBOM output (CycloneDX 1.7)
 
@@ -93,21 +104,22 @@ crypto-finder convert findings.json --output cbom.json
 crypto-finder scan /path/to/code | crypto-finder convert --output cbom.json
 ```
 
-`convert` validates against the CycloneDX 1.7 schema. Each `cryptographic-asset` component carries
-`cryptoProperties` (`assetType`: `algorithm`, `certificate`, `protocol`, `related-crypto-material`) and
-`evidence.occurrences`. Only findings with complete metadata reach the CBOM, so it can list fewer assets
-than the findings file. Keep the findings JSON for deep analysis.
+`convert` validates the output against the CycloneDX 1.7 schema. Each `cryptographic-asset` component has
+`cryptoProperties` and `evidence.occurrences`. The `assetType` in `cryptoProperties` is one of `algorithm`,
+`certificate`, `protocol`, or `related-crypto-material`. Only findings with complete metadata reach the CBOM,
+so it can list fewer assets than the findings file. Keep the findings JSON for detailed analysis.
 
-Findings JSON shape: `.findings[]` with `file_path`, `language`, and `cryptographic_assets[]` (`start_line`,
-`match`, `rules[]`, `metadata.assetType`/`algorithmFamily`/`algorithmPrimitive`/`algorithmMode`, `source`:
-`direct` or `dependency`, `dependency_info.module`/`version`/`purl`).
+The findings JSON has a `.findings[]` array. Each entry has `file_path`, `language`, and
+`cryptographic_assets[]`. Each asset has `start_line`, `match`, `rules[]`, and
+`metadata.assetType`/`algorithmFamily`/`algorithmPrimitive`/`algorithmMode`. Its `source` is `direct` or
+`dependency`, and dependency assets add `dependency_info.module`/`version`/`purl`.
 
 ```bash
 jq -r '[.findings[].cryptographic_assets[] | .metadata.algorithmFamily // "unknown"]
        | group_by(.) | map("\(length)\t\(.[0])")[]' findings.json
 ```
 
-Reference: https://docs.scanoss.com/en/latest/cli/crypto-finder/output-formats.md
+See https://docs.scanoss.com/en/latest/cli/crypto-finder/output-formats.md.
 
 ## Dependency scanning
 
@@ -118,16 +130,18 @@ docker run --rm \
   scan --scan-dependencies --exclude "out/" --output /workspace/output/findings.json /workspace/code
 ```
 
-- Ecosystems: Go, Java (Maven/Gradle), Python (pip), Rust (Cargo), Node (npm). `--dep-ecosystem` forces one.
-- Needs the toolchains (the `latest-deps` image or local ones). Python projects need their requirements
-  installed before the scan.
+- Supported ecosystems are Go, Java (Maven/Gradle), Python (pip), Rust (Cargo), and Node (npm).
+  `--dep-ecosystem` forces one.
+- The scan needs the toolchains, from the `latest-deps` image or installed locally. Install a Python
+  project's requirements before the scan.
 - Dependency findings have `"source": "dependency"` and `dependency_info`.
-- `--export-callgraph callgraph.json` writes reachability ("does my code reach this crypto?").
+- `--export-callgraph callgraph.json` writes reachability, which answers whether your code reaches the crypto.
   Without `--scan-dependencies`, findings report `not_applicable` unless you add
-  `--export-callgraph-project-reachability` (leave it off when scanning a library on its own).
-- npm dev dependencies are skipped unless `--include-dev-dependencies`.
+  `--export-callgraph-project-reachability`. Leave that flag off when you scan a library on its own.
+- The scan skips npm dev dependencies unless you pass `--include-dev-dependencies`.
 
-Reference and limitations (static analysis, no reflection/interface dispatch):
+The analysis is static and does not follow reflection or interface dispatch. The reference and full list
+of limitations are at
 https://docs.scanoss.com/en/latest/cli/crypto-finder/dependency-scanning.md
 
 ## Failing CI
@@ -137,10 +151,10 @@ https://docs.scanoss.com/en/latest/cli/crypto-finder/dependency-scanning.md
 | `0` | Scan completed |
 | `1` | Scan failed, **or** findings were detected and `--fail-on-findings` was set |
 
-`--fail-on-findings` fails on **any** cryptography. Use it only for components that must contain none;
-with `--error-format json` its failure code is `findings_detected`, distinct from tool errors such as
-`rules_load_failed` or `scanner_timeout`. For an inventory, filter the JSON instead and exit `2` on a
-policy hit, for example broken algorithms:
+`--fail-on-findings` fails on **any** cryptography. Use it only for components that must contain none.
+With `--error-format json`, its failure code is `findings_detected`, which differs from tool errors such as
+`rules_load_failed` or `scanner_timeout`. For an inventory, filter the JSON instead and exit `2` when a
+finding breaks your policy. This example fails on broken algorithms:
 
 ```bash
 jq -e '[.findings[].cryptographic_assets[]
@@ -148,7 +162,7 @@ jq -e '[.findings[].cryptographic_assets[]
        | length == 0' findings.json > /dev/null || exit 2
 ```
 
-The algorithm lists are your policy, not a Crypto Finder feature. The full post-quantum inventory
-script is in https://docs.scanoss.com/en/latest/developer-tools/recipes/crypto-inventory-cbom.md
-(see also the `scanoss-recipes` skill). Docker and CI examples:
-https://docs.scanoss.com/en/latest/cli/crypto-finder/docker-usage.md
+You define the algorithm lists. Crypto Finder does not ship them. The full post-quantum inventory
+script is in https://docs.scanoss.com/en/latest/developer-tools/recipes/crypto-inventory-cbom.md, and the
+`scanoss-recipes` skill covers it too. Docker and CI examples are in
+https://docs.scanoss.com/en/latest/cli/crypto-finder/docker-usage.md.

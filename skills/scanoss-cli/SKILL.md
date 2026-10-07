@@ -10,8 +10,8 @@ metadata:
 # scanoss-cli
 
 `scanoss-cli` fingerprints source code locally, sends only the fingerprints (WFP) to the SCANOSS v3 API,
-and writes an inventory of the open source it matched. Full reference:
-https://docs.scanoss.com/en/latest/cli/scanoss-go/quick-start.md
+and writes an inventory of the open source it matched. The full reference is at
+https://docs.scanoss.com/en/latest/cli/scanoss-go/quick-start.md.
 
 It talks to the SCANOSS v3 API only and does not work with OSSKB.org.
 
@@ -25,24 +25,25 @@ docker run --rm -v "$PWD:/src" -e SCANOSS_API_KEY ghcr.io/scanoss/scanoss:latest
 scanoss-cli --version
 ```
 
-The image runs as non-root: redirect stdout on the host, or add `--user "$(id -u):$(id -g)"` before
-writing `--output /src/...`. Pin a version tag in CI.
+The image runs as a non-root user. Redirect stdout on the host, or add `--user "$(id -u):$(id -g)"` before
+you write `--output /src/...`. Pin a version tag in CI.
 
 ## Authentication
 
-The default endpoint `https://api.scanoss.com` needs an API key. Every setting resolves as:
+The default endpoint `https://api.scanoss.com` needs an API key. Each setting resolves in this order, from highest to lowest precedence:
 
 ```
 --flag  >  environment variable  >  ~/.scanoss/settings.json  >  built-in default
 ```
 
-- CI: set `SCANOSS_API_KEY` from the secret store. Never put the key on the command line.
-- Workstation: `scanoss-cli config set api-key "<key>"`.
-- Custom/on-prem endpoint: `--api-url`, `SCANOSS_API_URL`, or `config set api-url`. A custom URL may run keyless.
-- `scanoss-cli config list` shows each value and its source; the key always prints as `********`.
-  `config get api-key` exits `0` if set, `1` if not.
-- Proxy/CA: `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` are honoured; `--proxy` and `--ca-cert <pem>` override.
-  `--ignore-cert-errors` disables TLS verification (testing only, never stored).
+- In CI, set `SCANOSS_API_KEY` from the secret store. Never put the key on the command line.
+- On a workstation, run `scanoss-cli config set api-key "<key>"`.
+- For a custom or on-prem endpoint, use `--api-url`, `SCANOSS_API_URL`, or `config set api-url`. A custom
+  URL may not need a key.
+- `scanoss-cli config list` shows each value and its source. The key always prints as `********`.
+  `config get api-key` exits `0` if the key is set and `1` if not.
+- The CLI honours `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`. `--proxy` and `--ca-cert <pem>` override
+  them. `--ignore-cert-errors` disables TLS verification. Use it only for testing. The CLI never stores it.
 
 `wfp` and `sbom` never contact the API and need no key.
 
@@ -60,7 +61,7 @@ The default endpoint `https://api.scanoss.com` needs an API key. Every setting r
 | `vulnerabilities`, `licenses`, `cryptography`, `geoprovenance`, `copyright`, `components` | PURL lookups |
 | `config set\|get\|list\|unset\|path` | Stored settings |
 
-Add `-v/--verbose` for debug logs on stderr; stdout stays clean for results.
+Add `-v/--verbose` to write debug logs to stderr. Stdout then holds only results.
 
 ## Scanning
 
@@ -70,19 +71,23 @@ scanoss-cli scan . --include deps,licenses,vulns --format cyclonedx --output sbo
 scanoss-cli scan wfp project.wfp --output results.json   # or: results <scan-id> to resume
 ```
 
-- `--include` layers: `deps` (declared deps from manifests; needs a source tree), `vulns`, `licenses`,
-  `crypto`, `geo`. Without `licenses,vulns` the result has no licence or vulnerability data.
-- `-f/--format`: `raw` (default, renders every layer), `cyclonedx` (CycloneDX 1.7; drops `crypto`/`geo`),
-  `spdx` (SPDX 2.3; drops `vulns`/`crypto`/`geo`).
-- File selection: `--min-size`/`--max-size` (bytes; no minimum by default), `--gitignore` (default true),
-  `--all-extensions`, `--all-folders`, `--all-hidden`, `-t/--threads` (10).
-- `--skip-headers` (default true) changes fingerprints; keep it consistent across runs you compare.
+- `--include` takes the layers `deps`, `vulns`, `licenses`, `crypto`, and `geo`. `deps` reads declared
+  dependencies from manifests and needs a source tree. Without `licenses,vulns`, the result has no licence
+  or vulnerability data.
+- `-f/--format` takes `raw`, `cyclonedx`, or `spdx`. `raw` is the default and renders every layer.
+  `cyclonedx` writes CycloneDX 1.7 and drops `crypto` and `geo`. `spdx` writes SPDX 2.3 and drops `vulns`,
+  `crypto`, and `geo`.
+- These flags select files: `--min-size` and `--max-size` in bytes, with no minimum by default,
+  `--gitignore` (default true), `--all-extensions`, `--all-folders`, `--all-hidden`, and `-t/--threads`
+  (default 10).
+- `--skip-headers` (default true) changes the fingerprints. Keep it the same across runs you compare.
 - `--save-wfp <file>` keeps the WFP, but only the standalone `wfp` command is byte-reproducible.
 
 ## Reading the raw result
 
-`components[]` (each with `purl`, `version`, `scope`: `detected` or `declared`, `licenses[].id`,
-`evidence[].path`/`match_type`, `identified`) and a flat `vulnerabilities[]` (`id`, `severity`, `purls`).
+The raw result has a `components[]` array and a flat `vulnerabilities[]` array. Each component has `purl`,
+`version`, `scope` (`detected` or `declared`), `licenses[].id`, `evidence[].path`/`match_type`, and
+`identified`. Each vulnerability has `id`, `severity`, and `purls`.
 
 ```bash
 jq -r '.components[] | "\(.purl)@\(.version // "?")  \([.licenses[]?.id] | join(","))"' results.json
@@ -91,17 +96,17 @@ jq -r '.vulnerabilities[]? | "\(.severity // "unknown")  \(.id)  \(.purls // [] 
 
 ## Gotcha: the exit code never reflects findings
 
-`scanoss-cli` exits `0` when the command completed, whatever it found, and `1` only when the command
-failed (no key, API unreachable, bad flag, unwritable output). There is no fail-on-findings flag.
-Gate on the JSON instead, and keep "tool failed" (`1`) apart from "policy failed" (`2`):
+`scanoss-cli` exits `0` when the command completed, whatever it found. It exits `1` only when the command
+failed, for example with no key, an unreachable API, a bad flag, or an unwritable output. There is no
+fail-on-findings flag. Gate on the JSON instead, and keep "tool failed" (`1`) apart from "policy failed" (`2`).
 
 To fail on components that `scanoss.json` doesn't approve, use the version-aware filter
-`scanoss/unapproved.jq` from
-https://docs.scanoss.com/en/latest/developer-tools/recipes/approve-components-bom-rules.md
-(section "How it fails the pipeline"). Don't gate on `.identified` alone: see the version note below.
+`scanoss/unapproved.jq`. It is in the "How it fails the pipeline" section of
+https://docs.scanoss.com/en/latest/developer-tools/recipes/approve-components-bom-rules.md. Don't gate on
+`.identified` alone, for the reason in the version note below.
 
-For licence deny-lists and severity thresholds use the recipe
-https://docs.scanoss.com/en/latest/developer-tools/recipes/licence-and-vulnerability-gate.md
+For licence deny-lists and severity thresholds, use the recipe at
+https://docs.scanoss.com/en/latest/developer-tools/recipes/licence-and-vulnerability-gate.md.
 
 ## SBOMs and enrichment
 
@@ -112,9 +117,9 @@ scanoss-cli enrich results.json --include vulns,licenses --output refreshed.json
 scanoss-cli enrich sbom.spdx.json --include vulns,licenses --format cyclonedx --output refreshed.cdx.json
 ```
 
-Conversion is best-effort: SPDX 2.3 has no vulnerability model, so vulns are dropped with a warning.
-`enrich` keeps the input format by default, cannot add `deps`, and exits `0` even when a lookup service
-fails: check stderr for `Enrichment incomplete` or `layer returned no data for some components`.
+Conversion is best-effort. SPDX 2.3 has no vulnerability model, so the CLI drops vulnerabilities and prints
+a warning. `enrich` keeps the input format by default and cannot add `deps`. It exits `0` even when a lookup
+service fails, so check stderr for `Enrichment incomplete` or `layer returned no data for some components`.
 
 ## PURL lookups
 
@@ -126,13 +131,14 @@ scanoss-cli components versions --purl 'pkg:github/scanoss/engine' --limit 50
 scanoss-cli dependencies --purl 'pkg:github/scanoss/engine' --requirement '5.4.7' --transient --depth 5
 ```
 
-Many PURLs: repeat `--purl` or pass `--input` (newline `purl[,requirement]` or `{"components":[...]}`).
-Reference: https://docs.scanoss.com/en/latest/cli/scanoss-go/decoration-and-enrichment.md
+For many PURLs, repeat `--purl` or pass `--input`. The input file holds one `purl[,requirement]` per line,
+or `{"components":[...]}`. See https://docs.scanoss.com/en/latest/cli/scanoss-go/decoration-and-enrichment.md.
 
 ## scanoss.json (BOM rules and settings)
 
-Auto-detected in the scanned directory (then `settings.json`), or pass `--settings <path>`. Scanning a
-temporary copy of changed files? Pass the repository's `scanoss.json` with `--settings`.
+The CLI looks for `scanoss.json` in the scanned directory, then for `settings.json`. You can also pass
+`--settings <path>`. If you scan a temporary copy of changed files, pass the repository's `scanoss.json`
+with `--settings`.
 
 ```json
 {
@@ -147,23 +153,25 @@ temporary copy of changed files? Pass the repository's `scanoss.json` with `--se
 }
 ```
 
-- Applied client-side after results return, in order: `ignore` (alias `exclude`), `identify` (alias
-  `include`), `--ranking-threshold`, `remove`, `replace`. `identify` protects its PURLs from the rest.
+- The CLI applies the rules on the client after results return, in this order: `ignore` (alias `exclude`),
+  `identify` (alias `include`), `--ranking-threshold`, `remove`, `replace`. `identify` protects its PURLs
+  from the later steps.
 - **Rules match a PURL without its version.** On its own, `pkg:npm/vue@2.6.14` marks every version
   of `vue` as identified, so `.identified` is not a safe approval check. The `unapproved.jq` filter
   treats a pinned rule as approving only that version. Pin versions when the user wants upgrades
   to need re-approval.
-- `path` scopes a rule: `dir/` matches everything below, globs use standard rules, anything else is exact.
-- `ignore`/`identify` match canonical PURLs only; `remove`/`replace` also match aliases.
-- `-i/--identify <file>` and `-n/--ignore <file>` add unscoped rules from a component list, CycloneDX,
-  SPDX, or raw result (useful for a baseline).
+- `path` limits a rule to part of the tree. `dir/` matches everything below it, globs follow the standard
+  rules, and any other value must match exactly.
+- `ignore` and `identify` match canonical PURLs only. `remove` and `replace` also match aliases.
+- `-i/--identify <file>` and `-n/--ignore <file>` add unscoped rules from a component list, a CycloneDX or
+  SPDX file, or a raw result. This helps when you set a baseline.
 - **`settings.file_snippet` keys `skip_headers`, `skip_headers_limit`, `ranking_threshold` override the
   matching flags.** If a flag seems to have no effect, look for these keys.
 
-Reference: https://docs.scanoss.com/en/latest/cli/scanoss-go/scanning-your-project.md and
-https://docs.scanoss.com/en/latest/developer-tools/recipes/approve-components-bom-rules.md
+See https://docs.scanoss.com/en/latest/cli/scanoss-go/scanning-your-project.md and
+https://docs.scanoss.com/en/latest/developer-tools/recipes/approve-components-bom-rules.md.
 
-More: [configuration](https://docs.scanoss.com/en/latest/cli/scanoss-go/configuration.md),
+Other references: [configuration](https://docs.scanoss.com/en/latest/cli/scanoss-go/configuration.md),
 [output formats](https://docs.scanoss.com/en/latest/cli/scanoss-go/output-formats.md),
-[Docker](https://docs.scanoss.com/en/latest/cli/scanoss-go/using-docker.md). For full workflows (PR scans,
-release SBOMs, pre-commit) use the `scanoss-recipes` skill.
+[Docker](https://docs.scanoss.com/en/latest/cli/scanoss-go/using-docker.md). For full workflows such as PR scans,
+release SBOMs, and pre-commit, use the `scanoss-recipes` skill.
