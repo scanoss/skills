@@ -95,11 +95,10 @@ jq -r '.vulnerabilities[]? | "\(.severity // "unknown")  \(.id)  \(.purls // [] 
 failed (no key, API unreachable, bad flag, unwritable output). There is no fail-on-findings flag.
 Gate on the JSON instead, and keep "tool failed" (`1`) apart from "policy failed" (`2`):
 
-```bash
-# Fail when a detected component is not approved in scanoss.json
-jq -e '[.components[] | select((.scope // "detected") == "detected" and (.identified | not))]
-       | length == 0' results.json > /dev/null || exit 2
-```
+To fail on components that `scanoss.json` doesn't approve, use the version-aware filter
+`scanoss/unapproved.jq` from
+https://docs.scanoss.com/en/latest/developer-tools/recipes/approve-components-bom-rules.md
+(section "How it fails the pipeline"). Don't gate on `.identified` alone: see the version note below.
 
 For licence deny-lists and severity thresholds use the recipe
 https://docs.scanoss.com/en/latest/developer-tools/recipes/licence-and-vulnerability-gate.md
@@ -150,8 +149,10 @@ temporary copy of changed files? Pass the repository's `scanoss.json` with `--se
 
 - Applied client-side after results return, in order: `ignore` (alias `exclude`), `identify` (alias
   `include`), `--ranking-threshold`, `remove`, `replace`. `identify` protects its PURLs from the rest.
-- **Rules match a PURL without its version.** `pkg:npm/vue@2.6.14` approves every version of `vue`.
-  A versioned rule wins over an unversioned one but does not restrict the approval.
+- **Rules match a PURL without its version.** On its own, `pkg:npm/vue@2.6.14` marks every version
+  of `vue` as identified, so `.identified` is not a safe approval check. The `unapproved.jq` filter
+  treats a pinned rule as approving only that version. Pin versions when the user wants upgrades
+  to need re-approval.
 - `path` scopes a rule: `dir/` matches everything below, globs use standard rules, anything else is exact.
 - `ignore`/`identify` match canonical PURLs only; `remove`/`replace` also match aliases.
 - `-i/--identify <file>` and `-n/--ignore <file>` add unscoped rules from a component list, CycloneDX,

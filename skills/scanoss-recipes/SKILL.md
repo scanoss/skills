@@ -73,12 +73,16 @@ Inspect before writing:
   "tool failed" (`1`) from "policy failed" (`2`):
 
   ```bash
-  jq -e '[.components[] | select((.scope // "detected") == "detected" and (.identified | not))]
-         | length == 0' scanoss-results.json > /dev/null || exit 2
+  rules=scanoss.json; [ -f "$rules" ] || rules=/dev/null
+  unapproved=$(jq -c --slurpfile rules "$rules" -f scanoss/unapproved.jq scanoss-results.json)
+  [ -z "$unapproved" ] || { echo "$unapproved"; exit 2; }
   ```
+
+  Copy `scanoss/unapproved.jq` into the repository from the "Approve components" recipe.
 - Produce gate inputs with `--include licenses,vulns`; without them a licence/vulnerability gate always passes.
 - Install scanoss-cli outside the repository (temp dir) and verify it against `checksums.txt`.
-- `scanoss.json` BOM rules match PURLs without version; approving `pkg:npm/vue@2.6.14` approves every `vue`.
+- `scanoss.json` BOM rules match PURLs without version, so `.identified` alone approves every version
+  of a component. Gate with `unapproved.jq`, which treats a pinned rule as approving only that version.
 - `enrich` exits `0` on partial failure; treat `Enrichment incomplete` / `layer returned no data for some
   components` on stderr as a failure.
 - Crypto Finder's `--fail-on-findings` fails on any cryptography; for inventories filter with `jq` instead.
