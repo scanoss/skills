@@ -16,13 +16,13 @@ and it overrides this skill. Never edit the markers or the text between them. Ea
 policies change, and damaged markers stop the refresh. The docs start at
 https://docs.scanoss.com/en/latest/earnie/introduction.md.
 
-## The model: one policy, three moments
+## The model: one policy, everywhere code changes
 
-| Moment | Where | What Earnie does |
+| Where | Covers | What Earnie does |
 |---|---|---|
-| Write-time | Coding agents over MCP, the CLI, hooks | Gives the agent policy context and runs quick **Self-checks** on changed files. Creates no findings. |
-| Merge-time | Pull/merge requests and CI | Scans the change and posts a gate result with comments. |
-| Anytime | Web app | Runs full scans and keeps the posture, triage history, and SBOM evidence. |
+| Development | Coding agents over MCP, the CLI, hooks | Gives the agent policy context and runs quick **Self-checks** on changed files. Creates no findings. |
+| Pull requests & CI | Pull/merge requests and CI | Scans the change and posts a gate result with comments. |
+| Governance | Web app | Runs full scans and keeps the posture, triage history, and SBOM evidence. |
 
 Earnie scans a **project**, and the scan produces **findings**. Earnie checks the findings against
 **policies**, and the result is a **verdict**: Pass, Warn, Require approval, or Block. **Not evaluated** is
