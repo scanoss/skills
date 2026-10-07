@@ -34,8 +34,8 @@ brew install scanoss/dist/earnie
 # or
 curl -fsSL https://github.com/scanoss/earnie-cli/releases/latest/download/install.sh | sh
 earnie version
-earnie auth login --api-url https://your-earnie.example                     # interactive
-printf %s "$EARNIE_API_KEY" | earnie --api-url https://your-earnie.example auth login --api-key-stdin   # CI
+earnie auth login --api-url https://your-company.earnie.dev                     # interactive
+printf %s "$EARNIE_API_KEY" | earnie --api-url https://your-company.earnie.dev auth login --api-key-stdin   # CI
 ```
 
 Container image: `ghcr.io/scanoss/earnie-cli:X.Y.Z`. Never pass the key as an argument in CI.
