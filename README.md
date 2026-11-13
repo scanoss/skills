@@ -38,10 +38,11 @@ npx skills add scanoss/skills --list
 | [`scanoss-recipes`](skills/scanoss-recipes/SKILL.md) | Choose and adapt a SCANOSS recipe (PR scans, licence and vulnerability gates, release SBOMs, and more) to your CI and repository. |
 | [`earnie`](skills/earnie/SKILL.md) | Operate Earnie: CLI, verdicts, pre-commit hook, MCP setup, Self-checks, merge gate, and the REST API. |
 | [`migrate-to-earnie`](skills/migrate-to-earnie/SKILL.md) | Move a repository from the legacy SCANOSS toolchain to Earnie, phase by phase, with the known gaps. |
+| [`migrate-to-v3`](skills/migrate-to-v3/SKILL.md) | Move a repository or CI pipeline from scanoss-py and the v2 API to scanoss-cli and v3, phase by phase, with the known gaps. |
 
 ## Requirements
 
-- `scanoss-cli`, `crypto-finder`, `scanoss-api`, `scanoss-recipes`: a SCANOSS API key for the hosted API,
+- `scanoss-cli`, `crypto-finder`, `scanoss-api`, `scanoss-recipes`, `migrate-to-v3`: a SCANOSS API key for the hosted API,
   provided as `SCANOSS_API_KEY` (see [API Keys & Authentication](https://docs.scanoss.com/en/latest/developer-tools/authentication)).
 - `earnie`, `migrate-to-earnie`: access to an Earnie organisation and an Earnie API key (`EARNIE_API_KEY`).
 
