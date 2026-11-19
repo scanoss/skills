@@ -169,5 +169,20 @@ organisation settings, connect integrations, or manage API keys. See
 https://docs.scanoss.com/en/latest/earnie/api/using-the-api.md and
 https://docs.scanoss.com/en/latest/earnie/administration/api-keys.md.
 
+## Hearing about finished scans without polling
+
+A system that only needs to react to results (a deploy step, a SIEM, a chat bot) can subscribe instead of
+polling `earnie scan status`. In Settings > Notifications, an admin adds a webhook, Slack or Teams channel
+and a rule of class Policy that checks the kind `Scan completed`, or calls
+`POST /v1/notifications/rules` with `{"class": "policy", "kinds": ["scan_completed"], "channel_id": "..."}`
+(scope `notifications:write`). The kind is opt-in: a rule for the whole Policy class does not include it.
+
+Each completed scan then sends one signed `earnie.notification.v1` body with `kind: "scan_completed"`,
+`subjects` (project id, then scan id), `attributes.gate` (`passed`, `failed`, `error`, `none` or
+`unknown`), `attributes.trigger`, `project_slug`, `commit_sha` and `branch` when known, and `counts`
+(`findings_added`, `policies_evaluated`, `policies_failing`). Key on `kind`, `subjects` and `attributes`,
+never on `title`. Verify the `X-Earnie-Signature` header. A pipeline that must fail the build on the gate
+still uses the scan exit codes above. See https://docs.scanoss.com/en/latest/earnie/using-earnie/notifications.md.
+
 To move a repository off scanoss-py, the legacy SCANOSS action, or the SCANOSS pre-commit hook, use the
 `migrate-to-earnie` skill.
