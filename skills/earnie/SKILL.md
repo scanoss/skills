@@ -98,9 +98,12 @@ earnie findings export --project billing-service --file-format csv --output find
 - Paging: `--limit` (1-1000) and `--offset`. A partial page has `next_offset`. `--all` reads every page.
 - `--format` picks how the command reports (human or json). `findings export` writes the file in
   `--file-format`, which is `json` (one array) or `csv`.
-- An unknown slug exits `8`, and `error.details.suggestions` holds the nearest slugs. Without
-  `--if-not-exists`, a taken slug exits `8` with `error.code` `conflict`.
+- An unknown slug exits `8`, and `error.details.suggestions` holds the nearest slugs. A taken name or
+  slug exits `8` with `error.code` `conflict`; the message says which. `--if-not-exists` reuses a live
+  Project with the slug, never an archived one (`error.details.archived`): restore it first.
 - Count with `.finding_list.total`, not the length of `items`: a page holds at most `--limit` (100).
+- `consistent: false` in `finding_list` or `finding_export` means findings changed between pages and some
+  may be missing: run the command again.
 - Human `findings show` prints the evidence's simple fields; `--format json` has all of it.
 - Pipe slugs from one command to the next, for example open findings per Project:
   `earnie project list --format json | jq -r '.project_list.items[].slug' | while read -r s; do echo "$s $(earnie findings list --project "$s" --state open --format json | jq .finding_list.total)"; done`
