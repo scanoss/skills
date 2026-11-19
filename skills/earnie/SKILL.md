@@ -118,6 +118,44 @@ earnie findings export --project billing-service --file-format csv --output find
 - Pipe slugs from one command to the next, for example open findings per Project:
   `earnie project list --format json | jq -r '.project_list.items[].slug' | while read -r s; do echo "$s $(earnie findings list --project "$s" --state open --format json | jq .finding_list.total)"; done`
 
+## Findings in code scanning (SARIF)
+
+`earnie export --bom-format sarif` downloads the project's open findings as a SARIF 2.1.0 log, the format
+GitHub code scanning, GitLab, Azure DevOps and DefectDojo read. Each vulnerability of a component is a result
+located at the files the scan matched; with `--include oss,crypto`, each cryptographic asset is one too, with
+its lines. A vulnerability your VEX statement marks not affected or fixed is left out, and so is a finding no
+file locates; the log counts both.
+
+```bash
+earnie export --project billing --bom-format sarif -o results.sarif                 # write a file
+earnie export --project billing --bom-format sarif -o results.sarif --format json   # plus a JSON report
+earnie export --project billing --bom-format sarif -o - | jq '.runs[0].results | length'   # stdout
+```
+
+`--bom-format` is the document; `--format` is the command's own output (human or json). With `-o -` the log is
+the only thing on stdout and the report goes to stderr. Export exits `0` when the file is written, whatever it
+holds: gate on `earnie scan`, not on export. Upload in GitHub Actions after the scan:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+steps:
+  - uses: actions/checkout@v4
+  - run: curl -fsSL https://github.com/scanoss/earnie-cli/releases/latest/download/install.sh | sh
+  - run: earnie export --bom-format sarif -o earnie.sarif
+    env:
+      EARNIE_API_URL: https://your-company.earnie.dev
+      EARNIE_API_KEY: ${{ secrets.EARNIE_API_KEY }}
+  - uses: github/codeql-action/upload-sarif@v4
+    with:
+      sarif_file: earnie.sarif
+      category: earnie
+```
+
+The export needs a key with `scans:read`, plus `scans:write` when no current snapshot holds a SARIF log and
+one must be generated. It needs an Earnie server that supports the SARIF format.
+
 ## Pre-commit hook
 
 `earnie hook install` adds a hook that runs `earnie scan staged --format hook`. The hook reads the Git
