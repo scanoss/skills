@@ -121,8 +121,9 @@ project. See https://docs.scanoss.com/en/latest/earnie/mcp/connecting-a-client.m
 - To write or change a policy with the user, use the `earnie_author_policy` prompt (it needs `policies:read` and
   `findings:read`; clients that support MCP prompts offer it as a slash command). Check every draft with `earnie_check_policy`,
   which needs no project and lists every problem with its fix, then dry-run it with `earnie_try_policy`
-  on a real project before it is saved, and attach it with `earnie_attach_policy` only to the projects the
-  user named.
+  on a real project before it is saved, save it with `earnie_save_policy` (send an `idempotency_key`) only after the user agreed to the dry
+  run, and attach it with `earnie_attach_policy` only to the projects the user named. Both tools, and
+  `earnie_delete_policy`, need `policies:write`; without it, ask the user to do it in the web app.
 
 Tools and scopes are listed at https://docs.scanoss.com/en/latest/earnie/mcp/tools.md. Errors are covered
 at https://docs.scanoss.com/en/latest/earnie/mcp/troubleshooting.md.
