@@ -114,6 +114,11 @@ project. See https://docs.scanoss.com/en/latest/earnie/mcp/connecting-a-client.m
 - Call `earnie_triage_finding` only when the user told you what to decide on a specific finding, always
   with their reason. It takes effect immediately.
 - `EARNIE_SKIP_REVIEW=1` records a visible, user-requested skip. Only set it when the user asks.
+- Earnie also sends the first two steps as its MCP `instructions` when the client connects.
+- To write or change a policy with the user, use the `earnie_author_policy` prompt (it needs `policies:read` and
+  `findings:read`; clients that support MCP prompts offer it as a slash command). Dry-run every draft with `earnie_try_policy`
+  on a real project before it is saved, and attach it with `earnie_attach_policy` only to the projects the
+  user named.
 
 Tools and scopes are listed at https://docs.scanoss.com/en/latest/earnie/mcp/tools.md. Errors are covered
 at https://docs.scanoss.com/en/latest/earnie/mcp/troubleshooting.md.
