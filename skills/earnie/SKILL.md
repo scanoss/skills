@@ -74,6 +74,44 @@ get every finding. Policies change only in the web app. In a pipeline, use the E
 template pinned to a CLI release, and keep the key in a masked secret. The CLI reference covers this under
 "Running in a Pipeline".
 
+## Projects and findings without the web app
+
+Needs a CLI that lists `project` and `findings` in `earnie --help`. Scopes: `projects:read`,
+`projects:write` to create or rename, `findings:read`.
+
+```bash
+earnie project list --format json | jq -r '.project_list.items[].slug'
+earnie project show billing-service                          # id or slug
+earnie project create --name "Billing Service" --slug billing-service --if-not-exists   # safe to re-run
+earnie project update billing-service --name "Billing and Invoicing"   # the slug never changes
+earnie findings list --project billing-service --state open --domain oss --format json
+earnie findings list --project billing-service --all --format json   # every page
+earnie findings show <finding-id>
+earnie findings export --project billing-service --file-format csv --output findings.csv
+```
+
+- Each command prints one envelope under `--format json`. The document is under `project_list`,
+  `project_detail`, `finding_list`, `finding`, or `finding_export`. Errors go in `error`, and the exit
+  codes are the ones in the table above.
+- Filters: `--state` (`open`, `assigned`, `resolved`, `superseded_by_rule`, `reopened`), `--domain`
+  (`oss`, `deps`, `crypto`, `ai`, `provenance`), `--scan <id>`, `--purl`, `--path` (a file or directory).
+- More filters on `list` and `export`: `--severity critical,high`, `--facet <path>:<value>` (repeatable,
+  e.g. `license.spdx_id:GPL-3.0-only`), `--new-in-scan <scan-id>` (what a pull request introduced),
+  `--source direct|dependency` (crypto), `--full` (whole evidence). Discover paths and values first:
+  `earnie findings facets --project <slug> --format json` (`finding_facets.facets[].path` and `.values[]`).
+- Paging: `--limit` (1-1000) and `--offset`. A partial page has `next_offset`. `--all` reads every page.
+- `--format` picks how the command reports (human or json). `findings export` writes the file in
+  `--file-format`, which is `json` (one array) or `csv`.
+- An unknown slug exits `8`, and `error.details.suggestions` holds the nearest slugs. A taken name or
+  slug exits `8` with `error.code` `conflict`; the message says which. `--if-not-exists` reuses a live
+  Project with the slug, never an archived one (`error.details.archived`): restore it first.
+- Count with `.finding_list.total`, not the length of `items`: a page holds at most `--limit` (100).
+- `consistent: false` in `finding_list` or `finding_export` means findings changed between pages and some
+  may be missing: run the command again.
+- Human `findings show` prints the evidence's simple fields; `--format json` has all of it.
+- Pipe slugs from one command to the next, for example open findings per Project:
+  `earnie project list --format json | jq -r '.project_list.items[].slug' | while read -r s; do echo "$s $(earnie findings list --project "$s" --state open --format json | jq .finding_list.total)"; done`
+
 ## Pre-commit hook
 
 `earnie hook install` adds a hook that runs `earnie scan staged --format hook`. The hook reads the Git
