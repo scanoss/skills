@@ -115,6 +115,9 @@ project. See https://docs.scanoss.com/en/latest/earnie/mcp/connecting-a-client.m
   with their reason. It takes effect immediately.
 - `EARNIE_SKIP_REVIEW=1` records a visible, user-requested skip. Only set it when the user asks.
 - Earnie also sends the first two steps as its MCP `instructions` when the client connects.
+- Before you write a policy, read what exists: `earnie_list_policies` for the organisation's policies and
+  `earnie_policy_catalog` (`kind`: `fields`, `field_values`, `templates`, `template_sets`) for the fields a rule
+  can read and the templates. Write each field the way its `cel_path` says.
 - To write or change a policy with the user, use the `earnie_author_policy` prompt (it needs `policies:read` and
   `findings:read`; clients that support MCP prompts offer it as a slash command). Dry-run every draft with `earnie_try_policy`
   on a real project before it is saved, and attach it with `earnie_attach_policy` only to the projects the
