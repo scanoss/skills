@@ -53,7 +53,11 @@ earnie scan path .                      # or: earnie scan staged | earnie scan d
 earnie scan path . --scanners oss,crypto --format json --details
 earnie scan path . --no-wait            # returns the scan ID; then:
 earnie scan wait <id>  |  earnie scan status <id>  |  earnie verdict <id>  |  earnie scan audit <id>
-earnie policy list  |  earnie policy show <slug>  |  earnie policy violations <slug>   # read-only
+earnie policy list  |  earnie policy show <slug>  |  earnie policy violations <slug>
+earnie policy fields [--domain oss|crypto|ai]  |  earnie policy templates   # what a rule can read
+earnie policy check policy.yaml  |  earnie --project <p> policy try policy.yaml   # nothing saved
+earnie policy create policy.yaml   # prints an idempotency key; retry with --idempotency-key <key>
+earnie policy update policy.yaml   |  earnie policy delete <slug> --revision <r> --yes
 earnie export --include oss --bom-format cyclonedx --output sbom.json
 ```
 
@@ -114,6 +118,44 @@ earnie findings export --project billing-service --file-format csv --output find
 - Pipe slugs from one command to the next, for example open findings per Project:
   `earnie project list --format json | jq -r '.project_list.items[].slug' | while read -r s; do echo "$s $(earnie findings list --project "$s" --state open --format json | jq .finding_list.total)"; done`
 
+## Findings in code scanning (SARIF)
+
+`earnie export --bom-format sarif` downloads the project's open findings as a SARIF 2.1.0 log, the format
+GitHub code scanning, GitLab, Azure DevOps and DefectDojo read. Each vulnerability of a component is a result
+located at the files the scan matched; with `--include oss,crypto`, each cryptographic asset is one too, with
+its lines. A vulnerability your VEX statement marks not affected or fixed is left out, and so is a finding no
+file locates; the log counts both.
+
+```bash
+earnie export --project billing --bom-format sarif -o results.sarif                 # write a file
+earnie export --project billing --bom-format sarif -o results.sarif --format json   # plus a JSON report
+earnie export --project billing --bom-format sarif -o - | jq '.runs[0].results | length'   # stdout
+```
+
+`--bom-format` is the document; `--format` is the command's own output (human or json). With `-o -` the log is
+the only thing on stdout and the report goes to stderr. Export exits `0` when the file is written, whatever it
+holds: gate on `earnie scan`, not on export. Upload in GitHub Actions after the scan:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+steps:
+  - uses: actions/checkout@v4
+  - run: curl -fsSL https://github.com/scanoss/earnie-cli/releases/latest/download/install.sh | sh
+  - run: earnie export --bom-format sarif -o earnie.sarif
+    env:
+      EARNIE_API_URL: https://your-company.earnie.dev
+      EARNIE_API_KEY: ${{ secrets.EARNIE_API_KEY }}
+  - uses: github/codeql-action/upload-sarif@v4
+    with:
+      sarif_file: earnie.sarif
+      category: earnie
+```
+
+The export needs a key with `scans:read`, plus `scans:write` when no current snapshot holds a SARIF log and
+one must be generated. It needs an Earnie server that supports the SARIF format.
+
 ## Pre-commit hook
 
 `earnie hook install` adds a hook that runs `earnie scan staged --format hook`. The hook reads the Git
@@ -152,6 +194,16 @@ project. See https://docs.scanoss.com/en/latest/earnie/mcp/connecting-a-client.m
 - Call `earnie_triage_finding` only when the user told you what to decide on a specific finding, always
   with their reason. It takes effect immediately.
 - `EARNIE_SKIP_REVIEW=1` records a visible, user-requested skip. Only set it when the user asks.
+- Earnie also sends the first two steps as its MCP `instructions` when the client connects.
+- Before you write a policy, read what exists: `earnie_list_policies` for the organisation's policies and
+  `earnie_policy_catalog` (`kind`: `fields`, `field_values`, `templates`, `template_sets`) for the fields a rule
+  can read and the templates. Write each field the way its `cel_path` says.
+- To write or change a policy with the user, use the `earnie_author_policy` prompt (it needs `policies:read` and
+  `findings:read`; clients that support MCP prompts offer it as a slash command). Check every draft with `earnie_check_policy`,
+  which needs no project and lists every problem with its fix, then dry-run it with `earnie_try_policy`
+  on a real project before it is saved, save it with `earnie_save_policy` (send an `idempotency_key`) only after the user agreed to the dry
+  run, and attach it with `earnie_attach_policy` only to the projects the user named. Both tools, and
+  `earnie_delete_policy`, need `policies:write`; without it, ask the user to do it in the web app.
 
 Tools and scopes are listed at https://docs.scanoss.com/en/latest/earnie/mcp/tools.md. Errors are covered
 at https://docs.scanoss.com/en/latest/earnie/mcp/troubleshooting.md.
@@ -203,11 +255,17 @@ Choose the smallest preset and one key per consumer:
 | Coding agent (MCP) | adds `projects:read`; `findings:write` only with "Allow agents to triage findings" |
 | Read-only reporter | `projects:read`, `scans:read`, `findings:read`, `policies:read` |
 
-The other scopes are `organization:read`, `projects:write`, `policies:write`, `scanconfig:read`/`write`,
-`integrations:read`, and `audit:read`. No key can approve policy requests, manage members, SSO, or
-organisation settings, connect integrations, or manage API keys. See
+The other scopes are `organization:read`, `projects:write`, `projects:import`, `policies:write`,
+`scanconfig:read`/`write`, `integrations:read`, and `audit:read`. No key can approve policy requests,
+manage members, SSO, or organisation settings, connect integrations, or manage API keys. See
 https://docs.scanoss.com/en/latest/earnie/api/using-the-api.md and
 https://docs.scanoss.com/en/latest/earnie/administration/api-keys.md.
+
+To import repositories by script, use a key for all projects with `projects:import`:
+`POST /v1/projects:import-repo` for one, `POST /v1/projects:bulk-import` (after `:preview-import`) for many,
+through a connection a person already made. A project-scoped key gets `403 project_scoped_key`.
+`POST /v1/api-keys/{id}:rotate` replaces a key with the same scopes and keeps the old one working for
+`grace_period_minutes` (default 60, `0` revokes it now). Only a signed-in person can rotate; a key cannot.
 
 ## Hearing about finished scans without polling
 
