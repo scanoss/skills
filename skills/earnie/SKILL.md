@@ -163,11 +163,17 @@ Choose the smallest preset and one key per consumer:
 | Coding agent (MCP) | adds `projects:read`; `findings:write` only with "Allow agents to triage findings" |
 | Read-only reporter | `projects:read`, `scans:read`, `findings:read`, `policies:read` |
 
-The other scopes are `organization:read`, `projects:write`, `policies:write`, `scanconfig:read`/`write`,
-`integrations:read`, and `audit:read`. No key can approve policy requests, manage members, SSO, or
-organisation settings, connect integrations, or manage API keys. See
+The other scopes are `organization:read`, `projects:write`, `projects:import`, `policies:write`,
+`scanconfig:read`/`write`, `integrations:read`, and `audit:read`. No key can approve policy requests,
+manage members, SSO, or organisation settings, connect integrations, or manage API keys. See
 https://docs.scanoss.com/en/latest/earnie/api/using-the-api.md and
 https://docs.scanoss.com/en/latest/earnie/administration/api-keys.md.
+
+To import repositories by script, use a key for all projects with `projects:import`:
+`POST /v1/projects:import-repo` for one, `POST /v1/projects:bulk-import` (after `:preview-import`) for many,
+through a connection a person already made. A project-scoped key gets `403 project_scoped_key`.
+`POST /v1/api-keys/{id}:rotate` replaces a key with the same scopes and keeps the old one working for
+`grace_period_minutes` (default 60, `0` revokes it now). Only a signed-in person can rotate; a key cannot.
 
 To move a repository off scanoss-py, the legacy SCANOSS action, or the SCANOSS pre-commit hook, use the
 `migrate-to-earnie` skill.
