@@ -53,7 +53,11 @@ earnie scan path .                      # or: earnie scan staged | earnie scan d
 earnie scan path . --scanners oss,crypto --format json --details
 earnie scan path . --no-wait            # returns the scan ID; then:
 earnie scan wait <id>  |  earnie scan status <id>  |  earnie verdict <id>  |  earnie scan audit <id>
-earnie policy list  |  earnie policy show <slug>  |  earnie policy violations <slug>   # read-only
+earnie policy list  |  earnie policy show <slug>  |  earnie policy violations <slug>
+earnie policy fields [--domain oss|crypto|ai]  |  earnie policy templates   # what a rule can read
+earnie policy check policy.yaml  |  earnie --project <p> policy try policy.yaml   # nothing saved
+earnie policy create policy.yaml   # prints an idempotency key; retry with --idempotency-key <key>
+earnie policy update policy.yaml   |  earnie policy delete <slug> --revision <r> --yes
 earnie export --include oss --bom-format cyclonedx --output sbom.json
 ```
 
@@ -152,6 +156,16 @@ project. See https://docs.scanoss.com/en/latest/earnie/mcp/connecting-a-client.m
 - Call `earnie_triage_finding` only when the user told you what to decide on a specific finding, always
   with their reason. It takes effect immediately.
 - `EARNIE_SKIP_REVIEW=1` records a visible, user-requested skip. Only set it when the user asks.
+- Earnie also sends the first two steps as its MCP `instructions` when the client connects.
+- Before you write a policy, read what exists: `earnie_list_policies` for the organisation's policies and
+  `earnie_policy_catalog` (`kind`: `fields`, `field_values`, `templates`, `template_sets`) for the fields a rule
+  can read and the templates. Write each field the way its `cel_path` says.
+- To write or change a policy with the user, use the `earnie_author_policy` prompt (it needs `policies:read` and
+  `findings:read`; clients that support MCP prompts offer it as a slash command). Check every draft with `earnie_check_policy`,
+  which needs no project and lists every problem with its fix, then dry-run it with `earnie_try_policy`
+  on a real project before it is saved, save it with `earnie_save_policy` (send an `idempotency_key`) only after the user agreed to the dry
+  run, and attach it with `earnie_attach_policy` only to the projects the user named. Both tools, and
+  `earnie_delete_policy`, need `policies:write`; without it, ask the user to do it in the web app.
 
 Tools and scopes are listed at https://docs.scanoss.com/en/latest/earnie/mcp/tools.md. Errors are covered
 at https://docs.scanoss.com/en/latest/earnie/mcp/troubleshooting.md.
