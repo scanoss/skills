@@ -95,6 +95,10 @@ earnie findings export --project billing-service --file-format csv --output find
   codes are the ones in the table above.
 - Filters: `--state` (`open`, `assigned`, `resolved`, `superseded_by_rule`, `reopened`), `--domain`
   (`oss`, `deps`, `crypto`, `ai`, `provenance`), `--scan <id>`, `--purl`, `--path` (a file or directory).
+- More filters on `list` and `export`: `--severity critical,high`, `--facet <path>:<value>` (repeatable,
+  e.g. `license.spdx_id:GPL-3.0-only`), `--new-in-scan <scan-id>` (what a pull request introduced),
+  `--source direct|dependency` (crypto), `--full` (whole evidence). Discover paths and values first:
+  `earnie findings facets --project <slug> --format json` (`finding_facets.facets[].path` and `.values[]`).
 - Paging: `--limit` (1-1000) and `--offset`. A partial page has `next_offset`. `--all` reads every page.
 - `--format` picks how the command reports (human or json). `findings export` writes the file in
   `--file-format`, which is `json` (one array) or `csv`.
