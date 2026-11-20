@@ -53,7 +53,11 @@ earnie scan path .                      # or: earnie scan staged | earnie scan d
 earnie scan path . --scanners oss,crypto --format json --details
 earnie scan path . --no-wait            # returns the scan ID; then:
 earnie scan wait <id>  |  earnie scan status <id>  |  earnie verdict <id>  |  earnie scan audit <id>
-earnie policy list  |  earnie policy show <slug>  |  earnie policy violations <slug>   # read-only
+earnie policy list  |  earnie policy show <slug>  |  earnie policy violations <slug>
+earnie policy fields [--domain oss|crypto|ai]  |  earnie policy templates   # what a rule can read
+earnie policy check policy.yaml  |  earnie --project <p> policy try policy.yaml   # nothing saved
+earnie policy create policy.yaml   # prints an idempotency key; retry with --idempotency-key <key>
+earnie policy update policy.yaml   |  earnie policy delete <slug> --revision <r> --yes
 earnie export --include oss --bom-format cyclonedx --output sbom.json
 ```
 
