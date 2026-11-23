@@ -55,19 +55,24 @@ token for a short-lived key held by a service account, and stores it where `--ap
 earnie auth login --oidc --api-url https://your-company.earnie.dev
 ```
 
+The URL comes from `--api-url` or `EARNIE_API_URL`. Sign in once per job, before the first command that calls
+Earnie.
+
 - **GitHub Actions:** the job needs `permissions: id-token: write`. The Earnie action does this itself when
   `api-key` is empty.
 - **GitLab CI:** the job needs `id_tokens: { EARNIE_ID_TOKEN: { aud: <Earnie URL> } }`. Elsewhere, export the
   token and pass its variable name with `--oidc-token-env NAME`. Never pass the token as a value.
 - `--oidc-audience` overrides the audience, which defaults to the API URL without a trailing slash.
 - `--format json` prints `oidc_login`: `platform`, `audience`, `service_account` (`id`, `name`), `key_id`,
-  `trust_rule_id`, `expires_at`. It never prints the key.
+  `trust_rule_id`, `expires_at` (UTC). It never prints the key. No later command shows them, so save this output
+  if a later step needs the identity or the expiry.
 - The key lasts the trust rule's lifetime, 15 minutes by default and 60 at most. On GitHub the CLI signs in
   again once, by itself, when a later command meets the expired key. A GitLab job has one token and an exchange
-  uses it up: exchange once per job, or ask the Admin for a longer lifetime.
+  uses it up: a second sign-in in the same job exits `4` (`token_already_exchanged`) and is not needed, because
+  the first key is still stored. If the key expires before the job ends, ask the Admin for a longer lifetime.
 
 Exit codes, each with the fix its message names: `4` the token was refused (the repository, ref or audience
-matches no trust rule) or already exchanged (get a new token); `5` an Admin has not turned on CI token
+matches no trust rule) or already exchanged (on GitLab the job is already signed in; elsewhere get a new token); `5` an Admin has not turned on CI token
 exchange; `6` Earnie or the issuer is unreachable, retry; `8` the job cannot produce a token (add
 `id-token: write`, or the `id_tokens` entry, or name the variable).
 
