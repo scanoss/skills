@@ -1,6 +1,6 @@
 ---
 name: earnie
-description: Operate Earnie, SCANOSS's governance platform for open source, cryptography, and AI provenance. Install and sign in to the earnie CLI, run scans and read verdicts and exit codes, install the pre-commit hook, connect a coding agent over MCP with earnie mcp setup, run and read Self-checks, understand the merge gate, export SBOMs, and call the Earnie REST API with a Bearer API key and the right scopes. Use when the user mentions Earnie, earnie CLI, "earnie scan", "is this project blocked", "why did the Earnie check fail", "set up Earnie MCP", "earnie mcp doctor", Self-check, Policy Approval, EARNIE_API_KEY, or "call the Earnie API".
+description: Operate Earnie, SCANOSS's governance platform for open source, cryptography, and AI provenance. Install and sign in to the earnie CLI (with an API key, or in CI with the job's OIDC identity), run scans and read verdicts and exit codes, install the pre-commit hook, connect a coding agent over MCP with earnie mcp setup, run and read Self-checks, understand the merge gate, export SBOMs, and call the Earnie REST API with a Bearer API key and the right scopes. Use when the user mentions Earnie, earnie CLI, "earnie scan", "is this project blocked", "why did the Earnie check fail", "set up Earnie MCP", "earnie mcp doctor", Self-check, Policy Approval, EARNIE_API_KEY, "earnie auth login --oidc", or "call the Earnie API".
 license: MIT
 metadata:
   author: scanoss
@@ -45,6 +45,41 @@ The container image is `ghcr.io/scanoss/earnie-cli:X.Y.Z`. Never pass the key as
 The CLI resolves the project from `--project`, then `EARNIE_PROJECT`, then the Git remote. There is no default
 project. On self-hosted Git remotes, set `EARNIE_PROJECT`. See
 https://docs.scanoss.com/en/latest/earnie/using-earnie/earnie-cli.md.
+
+## CI sign-in without a stored key
+
+In CI with no `EARNIE_API_KEY`, sign the job in with its own identity. Earnie swaps the CI platform's OIDC
+token for a short-lived key held by a service account, and stores it where `--api-key-stdin` would:
+
+```bash
+earnie auth login --oidc --api-url https://your-company.earnie.dev
+```
+
+The URL comes from `--api-url` or `EARNIE_API_URL`. Sign in once per job, before the first command that calls
+Earnie.
+
+- **GitHub Actions:** the job needs `permissions: id-token: write`. The Earnie action does this itself when
+  `api-key` is empty.
+- **GitLab CI:** the job needs `id_tokens: { EARNIE_ID_TOKEN: { aud: <Earnie URL> } }`. Elsewhere, export the
+  token and pass its variable name with `--oidc-token-env NAME`. Never pass the token as a value.
+- `--oidc-audience` overrides the audience, which defaults to the API URL without a trailing slash.
+- `--format json` prints `oidc_login`: `platform`, `audience`, `service_account` (`id`, `name`), `key_id`,
+  `trust_rule_id`, `expires_at` (UTC). It never prints the key. No later command shows them, so save this output
+  if a later step needs the identity or the expiry.
+- The key lasts the trust rule's lifetime, 15 minutes by default and 60 at most. On GitHub the CLI signs in
+  again once, by itself, when a later command meets the expired key. A GitLab job has one token and an exchange
+  uses it up: a second sign-in in the same job exits `4` (`token_already_exchanged`) and is not needed, because
+  the first key is still stored. If the key expires before the job ends, ask the Admin for a longer lifetime.
+
+Exit codes, each with the fix its message names: `4` the token was refused (the repository, ref or audience
+matches no trust rule) or already exchanged (on GitLab the job is already signed in; elsewhere get a new token); `5` an Admin has not turned on CI token
+exchange; `6` Earnie or the issuer is unreachable, retry; `8` the job cannot produce a token (add
+`id-token: write`, or the `id_tokens` entry, or name the variable).
+
+Turning the organisation setting on and adding trust rules is a human Admin task, in Settings > Service
+accounts. Never try to do it, with a key, the API or the web app. If the exchange is refused, report the exit
+code and the message to the user. See
+https://docs.scanoss.com/en/latest/earnie/administration/ci-without-secrets.md.
 
 ## Scans and verdicts
 
